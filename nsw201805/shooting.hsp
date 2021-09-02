@@ -1,0 +1,125 @@
+#include "hsp3dish.as"
+randomize
+title "shooting game"
+img = 3
+celload "chr.png",img
+dispw = ginfo_sx:disph = ginfo_sy
+src = 16
+dst = (dispw+disph)/25
+chmax = 50
+dim cx,chmax:dim cy,chmax
+dim cid,chmax
+dim cmsk,chmax
+dim ctime,chmax
+goto *main
+//---append character
+#deffunc chrmake int newx,int newy,int newid,int newmsk
+for i,0,chmax
+	if(cx.i < 9999):_continue
+	cx.i = newx : cy.i = newy			
+	cid.i = newid
+	cmsk.i = newmsk
+	ctime.i = 0			
+	_break
+next
+return
+//---hit check
+#defcfunc hitchk int x,int y,int msk
+hit = -1
+for i,0,chmax
+	if((cx.i >= 9999)||((msk and cmsk.i)==0)):_continue
+	if((abs(x-cx.i)<dst)&&(abs(y-cy.i)<dst)){
+		hit = i
+		_break
+	}
+next
+return hit
+//---main loop
+*main
+repeat chmax
+	cx.cnt = 9999
+loop
+imgnum = 0
+score = 0
+endflag = 200
+gmode 2,src,src	//set copy mode
+repeat
+	redraw 0
+	color 0,0,200:boxf 0,0,dispw,3*disph/4
+	color 128,128,0:boxf 0,3*disph/4,dispw,disph
+	repeat chmax
+		if(cx.cnt >= 9999): continue 
+		if(cx.cnt<0)||(cx.cnt>dispw)||(cy.cnt<0)||(cy.cnt>disph){
+			cx.cnt = 9999 
+		}
+		tmpid = cid.cnt
+		on tmpid gosub *player,*enemy,*fire,*shot,*beam
+		tmpnum = imgnum+((ctime.cnt/4) \ 4)
+		sx = (tmpnum \ 16)*16 : sy=(tmpnum/16)*16
+ 		pos cx.cnt,cy.cnt
+		gzoom dst,dst,img,sx,sy,src,src
+		ctime.cnt++
+	loop
+	color 255,255,255
+	pos dispw/3,disph/20:print "SCORE : "+str(score)
+	if(endflag == 0){
+		score++
+		if(rnd(100) <= (score/300)):chrmake rnd(dispw),0,1,1
+	}else{
+		pos dispw/3,disph/2:print "GAME OVER"
+		endflag++
+		if(endflag>200){
+			endflag=0
+			chrmake dispw/2 ,3*disph/4-dst ,0,0
+			score = 0
+		}
+	}
+	redraw 1
+	await 1000/30
+loop
+stop
+//---id 0:PLAYER
+*player
+imgnum = 0xe0
+mx = mousex-(dst/2)
+cx.cnt += (mx-cx.cnt)/6
+if(cx.cnt < 0): cx.cnt=0
+if(cx.cnt > (dispw-dst)): cx.cnt = dispw-dst
+if((ctime.cnt \ 15)==0){
+	chrmake cx.cnt ,cy.cnt ,3 ,0	
+}
+if(hitchk(cx.cnt ,cy.cnt ,3) != -1){
+	ctime.cnt = 0
+	cid.cnt = 2
+	endflag = 1
+}
+return
+//---id 1:ENEMY
+*enemy
+imgnum = 0xec
+cx.cnt += ((cnt \ 3)-1)*4
+cy.cnt += dst*(60-ctime.cnt)/250
+if(rnd(100) < 2):chrmake cx.cnt, cy.cnt ,4,2
+return
+//---id 2:FIRE
+*fire
+imgnum = 0xe8
+if(ctime.cnt>30): cx.cnt=9999 
+return
+//---id 3:SHOT
+*shot
+imgnum = 0xcc
+cy.cnt = cy.cnt-(dst/4)
+hit = hitchk(cx.cnt ,cy.cnt ,1)
+if(hit != -1){
+	cx.cnt = 9999
+	cid.hit = 2
+	ctime.hit = 0
+	cmsk.hit = 0
+}
+return
+//---id 4:BEAM
+*beam
+imgnum = 0xc8
+cy.cnt += (dst/4)
+return
